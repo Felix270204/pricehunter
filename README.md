@@ -60,7 +60,7 @@ pricehunter/
 
 ### 1. Clonar el repositorio
 ```bash
-git clone https://github.com/TU-USUARIO/pricehunter.git
+git clone https://github.com/Felix270204/pricehunter.git
 cd pricehunter
 ```
 
@@ -91,7 +91,7 @@ Abre tu navegador en: **`http://127.0.0.1:5000`**
 
 **Felix Roberto Borges Romero**  
 *Desarrollador Web & Automatización en Python*  
-- [Perfil de GitHub](https://github.com/)
+- [Perfil de GitHub](https://github.com/Felix270204)
 - [Contacto en Workana](https://www.workana.com/)
 
 ---
