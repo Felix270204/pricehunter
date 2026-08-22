@@ -217,7 +217,7 @@ class ShopifyScraper:
         if termino:
             url = f"https://{dominio}/search/suggest.json?q={urllib.parse.quote_plus(termino)}&resources[type]=product"
             try:
-                r = requests.get(url, headers=self.HEADERS, timeout=5)
+                r = requests.get(url, headers=self.HEADERS, timeout=2.5)
                 if r.status_code == 200:
                     data = r.json()
                     items = data.get("resources", {}).get("results", {}).get("products", [])
@@ -232,7 +232,7 @@ class ShopifyScraper:
         if not productos:
             url_prod = f"https://{dominio}/products.json?limit=40"
             try:
-                r = requests.get(url_prod, headers=self.HEADERS, timeout=5)
+                r = requests.get(url_prod, headers=self.HEADERS, timeout=2.5)
                 if r.status_code == 200:
                     data = r.json()
                     items = data.get("products", [])
