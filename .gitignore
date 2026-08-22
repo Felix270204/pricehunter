@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Logs y Temporales
+*.log
+test_debug.py
+test_direct.py
+test_search.py
+
+# Salidas de reportes generados
+output/*.xlsx
+output/historial.json
+
+# IDEs
+.vscode/
+.idea/
+*.swp

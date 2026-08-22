@@ -1,0 +1,11 @@
+playwright==1.49.0
+beautifulsoup4==4.12.3
+lxml==5.3.0
+requests==2.32.3
+rich==13.9.4
+openpyxl==3.1.5
+python-dotenv==1.0.1
+aiohttp==3.11.10
+curl_cffi==0.16.0
+fake-useragent==2.2.0
+flask==3.1.0

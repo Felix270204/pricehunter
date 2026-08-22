@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PriceHunter — Scraper de Tiendas & Marcas Independientes (Shopify)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        shopify: {
+                            50: '#f0fdf4',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            900: '#14532d',
+                        }
+                    },
+                    keyframes: {
+                        fadeIn: { '0%': { opacity: '0', transform: 'translateY(12px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+                        slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+                        pulse2: { '0%, 100%': { opacity: '1' }, '50%': { opacity: '0.4' } }
+                    },
+                    animation: {
+                        fadeIn: 'fadeIn 0.4s ease-out forwards',
+                        slideUp: 'slideUp 0.5s ease-out forwards',
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .gradient-header {
+            background: linear-gradient(135deg, #064e3b 0%, #065f46 50%, #047857 100%);
+        }
+        /* Loading dots */
+        .dot-bounce { display: inline-block; animation: bounce 1.2s infinite; }
+        .dot-bounce:nth-child(2) { animation-delay: 0.2s; }
+        .dot-bounce:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+        }
+        /* Tienda scanning animation */
+        .store-scan-item { opacity: 0; animation: fadeInItem 0.4s ease forwards; }
+        @keyframes fadeInItem { to { opacity: 1; } }
+
+        /* Slider styling */
+        input[type=range] { -webkit-appearance: none; appearance: none; height: 5px; border-radius: 9999px; background: #e2e8f0; outline: none; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #16a34a; cursor: pointer; border: 2px solid white; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+        input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #16a34a; cursor: pointer; border: 2px solid white; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col antialiased">
+
+    <!-- Navbar / Header -->
+    <header class="gradient-header text-white shadow-xl py-7 px-4">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center space-x-3.5">
+                <div class="bg-emerald-400/20 p-3 rounded-2xl backdrop-blur-md border border-emerald-300/30 shadow-inner text-emerald-200 text-2xl">
+                    <i class="fa-solid fa-store"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-2xl md:text-3xl font-black tracking-tight">PriceHunter <span class="text-xs bg-emerald-400/30 text-emerald-100 border border-emerald-300/30 font-bold uppercase px-2.5 py-0.5 rounded-full">Shopify Real</span></h1>
+                    </div>
+                    <p class="text-xs md:text-sm text-emerald-100 mt-0.5">Scraper & Comparador de Productos en Tiendas y Marcas Independientes</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2 text-xs text-emerald-100 bg-white/10 px-3.5 py-2 rounded-full border border-white/10 backdrop-blur-sm">
+                <span class="inline-block w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
+                <span>24 Tiendas Shopify en Vivo</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 py-8 flex-1 w-full">
+
+        <!-- Search Card -->
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-100 p-6 -mt-12 relative z-10">
+            <form id="searchForm" class="flex flex-col sm:flex-row gap-3">
+                <div class="flex-1 relative">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </div>
+                    <input
+                        type="text"
+                        id="queryInput"
+                        placeholder="Busca en español o inglés: zapatos, shirt, funda, mochila, yoga..."
+                        required
+                        class="w-full pl-11 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition text-base font-medium shadow-inner"
+                    >
+                </div>
+                <button
+                    type="submit"
+                    id="searchBtn"
+                    class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold px-8 py-4 rounded-xl shadow-lg shadow-emerald-200 transition flex items-center justify-center space-x-2 text-base min-w-[170px]"
+                >
+                    <i class="fa-solid fa-spider"></i>
+                    <span>Escanear Tiendas</span>
+                </button>
+            </form>
+
+            <!-- Sugerencias rápidas -->
+            <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span class="font-semibold text-slate-400">Prueba rápida:</span>
+                <button type="button" class="quick-tag bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 px-2.5 py-1 rounded-lg border border-slate-200 font-medium transition" data-q="zapatos deportivos">👟 Zapatos Deportivos</button>
+                <button type="button" class="quick-tag bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 px-2.5 py-1 rounded-lg border border-slate-200 font-medium transition" data-q="shirt">👕 Shirt</button>
+                <button type="button" class="quick-tag bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 px-2.5 py-1 rounded-lg border border-slate-200 font-medium transition" data-q="case">📱 Case (Spigen)</button>
+                <button type="button" class="quick-tag bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 px-2.5 py-1 rounded-lg border border-slate-200 font-medium transition" data-q="yoga">🧘 Yoga</button>
+                <button type="button" class="quick-tag bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 px-2.5 py-1 rounded-lg border border-slate-200 font-medium transition" data-q="backpack">🎒 Mochila</button>
+                <button type="button" class="quick-tag bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 px-2.5 py-1 rounded-lg border border-slate-200 font-medium transition" data-q="sneakers">👟 Sneakers</button>
+            </div>
+        </div>
+
+        <!-- ===================== LOADING STATE MEJORADO ===================== -->
+        <div id="loadingState" class="hidden my-16 text-center">
+            <div class="inline-flex flex-col items-center w-full max-w-md mx-auto">
+
+                <!-- Spinner principal -->
+                <div class="relative w-20 h-20 mb-6">
+                    <div class="absolute inset-0 border-4 border-emerald-100 rounded-full"></div>
+                    <div class="absolute inset-0 border-4 border-transparent border-t-emerald-600 rounded-full animate-spin"></div>
+                    <div class="absolute inset-3 border-3 border-transparent border-t-emerald-400/60 rounded-full animate-spin" style="animation-direction: reverse; animation-duration: 0.8s; border-width: 3px;"></div>
+                    <div class="absolute inset-0 flex items-center justify-center text-emerald-600 text-xl">
+                        <i class="fa-solid fa-store"></i>
+                    </div>
+                </div>
+
+                <!-- Mensaje rotativo -->
+                <h3 id="loadingMsg" class="text-lg font-bold text-slate-700 transition-all duration-500">
+                    Iniciando escaneo de tiendas...
+                </h3>
+
+                <!-- Dots animados -->
+                <div class="flex space-x-1.5 mt-3 mb-5">
+                    <span class="dot-bounce w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                    <span class="dot-bounce w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+                    <span class="dot-bounce w-2 h-2 rounded-full bg-emerald-300 inline-block"></span>
+                </div>
+
+                <!-- Lista de tiendas escaneando -->
+                <div class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left">
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Tiendas en escaneo activo</p>
+                    <div id="storeScanList" class="grid grid-cols-2 gap-1.5 text-xs text-slate-600">
+                        <!-- Inyectado por JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="hidden mt-8 space-y-6">
+
+            <!-- Summary Stats Banner -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-2xl p-5 shadow-md flex items-center justify-between">
+                    <div>
+                        <p class="text-xs uppercase tracking-wider font-semibold text-emerald-200">Mejor Precio Encontrado</p>
+                        <h4 id="bestPriceText" class="text-3xl font-black mt-1">$0.00</h4>
+                        <p id="bestStoreText" class="text-xs text-emerald-200 mt-0.5">Tienda</p>
+                    </div>
+                    <div class="text-3xl bg-white/20 p-3 rounded-2xl"><i class="fa-solid fa-trophy text-amber-300"></i></div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs uppercase tracking-wider font-semibold text-slate-400">Ahorro Máximo</p>
+                        <h4 id="savingsText" class="text-3xl font-black text-slate-800 mt-1">$0.00</h4>
+                        <p class="text-xs text-emerald-600 font-bold mt-0.5">vs. la opción más cara</p>
+                    </div>
+                    <div class="text-2xl text-emerald-600 bg-emerald-50 p-3 rounded-2xl"><i class="fa-solid fa-piggy-bank"></i></div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs uppercase tracking-wider font-semibold text-slate-400">Productos Reales</p>
+                        <h4 id="totalOffersText" class="text-3xl font-black text-slate-800 mt-1">0</h4>
+                        <p id="storeCountText" class="text-xs text-slate-500 mt-0.5">con enlace directo de compra</p>
+                    </div>
+                    <div class="text-2xl text-teal-600 bg-teal-50 p-3 rounded-2xl"><i class="fa-solid fa-circle-check"></i></div>
+                </div>
+            </div>
+
+            <!-- ===================== FILTROS ===================== -->
+            <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5">
+                <div class="flex flex-col md:flex-row gap-5 items-start md:items-end">
+
+                    <!-- Filtro por Categoría -->
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                            <i class="fa-solid fa-tag mr-1 text-emerald-600"></i> Categoría
+                        </label>
+                        <select id="filterCategory" class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3.5 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition cursor-pointer">
+                            <option value="">Todas las categorías</option>
+                        </select>
+                    </div>
+
+                    <!-- Filtro por Precio -->
+                    <div class="flex-1 min-w-[260px]">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                            <i class="fa-solid fa-dollar-sign mr-1 text-emerald-600"></i> Rango de Precio:
+                            <span id="priceRangeLabel" class="text-emerald-700 font-black">$0 — $500</span>
+                        </label>
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs text-slate-400 font-semibold w-6">$0</span>
+                            <input type="range" id="filterPriceMin" min="0" max="500" value="0" step="5" class="flex-1">
+                            <input type="range" id="filterPriceMax" min="0" max="500" value="500" step="5" class="flex-1">
+                            <span id="filterPriceMaxLabel" class="text-xs text-slate-400 font-semibold w-10 text-right">$500+</span>
+                        </div>
+                    </div>
+
+                    <!-- Botón Limpiar Filtros -->
+                    <button id="clearFiltersBtn" class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm px-4 py-2.5 rounded-xl transition flex items-center space-x-2 whitespace-nowrap">
+                        <i class="fa-solid fa-rotate-left text-xs"></i>
+                        <span>Limpiar Filtros</span>
+                    </button>
+                </div>
+
+                <!-- Contador de resultados filtrados -->
+                <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <p id="filteredCountText" class="text-xs text-slate-500">
+                        Mostrando <span id="filteredNum" class="font-black text-slate-800">0</span> de <span id="totalNum" class="font-black text-slate-800">0</span> productos encontrados
+                    </p>
+                    <p id="noResultsMsg" class="text-xs text-amber-600 font-bold hidden">
+                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> Sin resultados para estos filtros
+                    </p>
+                </div>
+            </div>
+
+            <!-- View Toggle & Actions Bar -->
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+                <div class="flex items-center space-x-2 bg-slate-200/70 p-1 rounded-xl">
+                    <button id="viewGridBtn" class="bg-white text-slate-800 font-semibold px-3 py-1.5 rounded-lg text-xs shadow-sm flex items-center space-x-1.5 transition">
+                        <i class="fa-solid fa-grip"></i>
+                        <span>Vista con Fotos HD</span>
+                    </button>
+                    <button id="viewTableBtn" class="text-slate-600 hover:text-slate-900 font-semibold px-3 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-table-list"></i>
+                        <span>Tabla Comparativa</span>
+                    </button>
+                </div>
+
+                <a
+                    id="downloadExcelBtn"
+                    href="#"
+                    class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs md:text-sm font-bold px-4 py-2.5 rounded-xl shadow-sm transition flex items-center space-x-2"
+                >
+                    <i class="fa-solid fa-file-excel"></i>
+                    <span>Descargar Reporte Excel (.xlsx)</span>
+                </a>
+            </div>
+
+            <!-- Grid View (Cards con Fotos HD) -->
+            <div id="cardsContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                <!-- Inyectado por JS -->
+            </div>
+
+            <!-- Table View -->
+            <div id="tableContainer" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50/90 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
+                                <th class="py-3.5 px-4 font-semibold text-center w-12">#</th>
+                                <th class="py-3.5 px-4 font-semibold">Tienda</th>
+                                <th class="py-3.5 px-4 font-semibold">Producto Real</th>
+                                <th class="py-3.5 px-4 font-semibold">Categoría</th>
+                                <th class="py-3.5 px-4 font-semibold text-right">Precio</th>
+                                <th class="py-3.5 px-4 font-semibold text-right">Envío</th>
+                                <th class="py-3.5 px-4 font-semibold text-right">TOTAL</th>
+                                <th class="py-3.5 px-4 font-semibold text-center">Ficha Oficial</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody" class="divide-y divide-slate-100 text-sm">
+                            <!-- Inyectado por JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Initial Placeholder -->
+        <div id="emptyState" class="my-16 text-center text-slate-400">
+            <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 text-2xl shadow-inner">
+                <i class="fa-solid fa-bag-shopping"></i>
+            </div>
+            <p class="font-bold text-slate-700 text-base">Escribe un producto o usa una de las pruebas rápidas arriba</p>
+            <p class="text-xs text-slate-400 mt-1">El scraper extraerá en vivo los productos con fotos reales y enlaces directos al carrito</p>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-6 px-4 text-center text-xs text-slate-400 mt-auto">
+        <p>Desarrollado por <span class="font-bold text-slate-700">Felix Roberto Borges Romero</span> • Scraper de Comercio Electrónico & Shopify en Python</p>
+    </footer>
+
+    <script>
+        // ============================================================
+        // Referencias DOM
+        // ============================================================
+        const searchForm       = document.getElementById('searchForm');
+        const queryInput       = document.getElementById('queryInput');
+        const searchBtn        = document.getElementById('searchBtn');
+        const loadingState     = document.getElementById('loadingState');
+        const loadingMsg       = document.getElementById('loadingMsg');
+        const storeScanList    = document.getElementById('storeScanList');
+        const resultsSection   = document.getElementById('resultsSection');
+        const emptyState       = document.getElementById('emptyState');
+        const cardsContainer   = document.getElementById('cardsContainer');
+        const tableContainer   = document.getElementById('tableContainer');
+        const tableBody        = document.getElementById('tableBody');
+        const viewGridBtn      = document.getElementById('viewGridBtn');
+        const viewTableBtn     = document.getElementById('viewTableBtn');
+        const downloadExcelBtn = document.getElementById('downloadExcelBtn');
+        const bestPriceText    = document.getElementById('bestPriceText');
+        const bestStoreText    = document.getElementById('bestStoreText');
+        const savingsText      = document.getElementById('savingsText');
+        const totalOffersText  = document.getElementById('totalOffersText');
+        const storeCountText   = document.getElementById('storeCountText');
+        const filterCategory   = document.getElementById('filterCategory');
+        const filterPriceMin   = document.getElementById('filterPriceMin');
+        const filterPriceMax   = document.getElementById('filterPriceMax');
+        const priceRangeLabel  = document.getElementById('priceRangeLabel');
+        const filteredNum      = document.getElementById('filteredNum');
+        const totalNum         = document.getElementById('totalNum');
+        const noResultsMsg     = document.getElementById('noResultsMsg');
+        const clearFiltersBtn  = document.getElementById('clearFiltersBtn');
+
+        // Tiendas para el panel de escaneo en vivo
+        const TIENDAS_DISPLAY = [
+            'Allbirds','Decathlon','Veja','Topo Athletic','Kizik',
+            'Alo Yoga','Vuori','Gymshark','Ten Thousand','UNTUCKit',
+            'Taylor Stitch','Cuts Clothing','Marine Layer','Spigen',
+            'Peak Design','Moment','Controller Chaos','ColourPop',
+            'Beardbrand','Public Goods','Nomad Goods','Lalo','Blume','Banana Republic'
+        ];
+
+        // Mensajes rotativos durante la carga
+        const LOADING_MSGS = [
+            'Iniciando escaneo de tiendas...',
+            'Consultando catálogos en tiempo real...',
+            'Extrayendo precios exactos de cada tienda...',
+            'Obteniendo imágenes HD de los productos...',
+            'Verificando disponibilidad de stock...',
+            'Ordenando resultados por mejor precio...',
+            'Eliminando duplicados y consolidando...',
+            'Casi listo, preparando resultados...',
+        ];
+
+        let allProducts = [];
+        let loadingMsgInterval = null;
+        let storeScanInterval = null;
+
+        // ============================================================
+        // Animación de carga
+        // ============================================================
+        function startLoadingAnimation() {
+            let msgIdx = 0;
+            loadingMsg.textContent = LOADING_MSGS[0];
+            loadingMsgInterval = setInterval(() => {
+                msgIdx = (msgIdx + 1) % LOADING_MSGS.length;
+                loadingMsg.style.opacity = '0';
+                setTimeout(() => {
+                    loadingMsg.textContent = LOADING_MSGS[msgIdx];
+                    loadingMsg.style.opacity = '1';
+                }, 250);
+            }, 1800);
+
+            // Animación de tiendas escaneando una a una
+            storeScanList.innerHTML = '';
+            TIENDAS_DISPLAY.forEach((tienda, i) => {
+                const span = document.createElement('div');
+                span.className = 'store-scan-item flex items-center gap-1.5 text-slate-500';
+                span.style.animationDelay = `${i * 0.12}s`;
+                span.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block flex-shrink-0"></span> ${tienda}`;
+                storeScanList.appendChild(span);
+            });
+        }
+
+        function stopLoadingAnimation() {
+            clearInterval(loadingMsgInterval);
+            clearInterval(storeScanInterval);
+        }
+
+        // ============================================================
+        // Quick tags
+        // ============================================================
+        document.querySelectorAll('.quick-tag').forEach(tag => {
+            tag.addEventListener('click', () => {
+                queryInput.value = tag.getAttribute('data-q');
+                searchForm.dispatchEvent(new Event('submit'));
+            });
+        });
+
+        // ============================================================
+        // Switch de Vista
+        // ============================================================
+        viewGridBtn.addEventListener('click', () => {
+            cardsContainer.classList.remove('hidden');
+            tableContainer.classList.add('hidden');
+            viewGridBtn.classList.add('bg-white', 'text-slate-800', 'shadow-sm');
+            viewTableBtn.classList.remove('bg-white', 'text-slate-800', 'shadow-sm');
+        });
+
+        viewTableBtn.addEventListener('click', () => {
+            cardsContainer.classList.add('hidden');
+            tableContainer.classList.remove('hidden');
+            viewTableBtn.classList.add('bg-white', 'text-slate-800', 'shadow-sm');
+            viewGridBtn.classList.remove('bg-white', 'text-slate-800', 'shadow-sm');
+        });
+
+        // ============================================================
+        // Filtros de precio — actualizar label en tiempo real
+        // ============================================================
+        function updatePriceLabel() {
+            const min = parseInt(filterPriceMin.value);
+            const max = parseInt(filterPriceMax.value);
+            const minVal = Math.min(min, max);
+            const maxVal = Math.max(min, max);
+            priceRangeLabel.textContent = `$${minVal} — ${maxVal >= 500 ? '$500+' : '$' + maxVal}`;
+            applyFilters();
+        }
+        filterPriceMin.addEventListener('input', updatePriceLabel);
+        filterPriceMax.addEventListener('input', updatePriceLabel);
+        filterCategory.addEventListener('change', applyFilters);
+
+        clearFiltersBtn.addEventListener('click', () => {
+            filterCategory.value = '';
+            filterPriceMin.value = 0;
+            filterPriceMax.value = 500;
+            updatePriceLabel();
+        });
+
+        // ============================================================
+        // Aplicar Filtros
+        // ============================================================
+        function applyFilters() {
+            if (!allProducts.length) return;
+
+            const catFilter = filterCategory.value.toLowerCase();
+            const minPrice  = Math.min(parseInt(filterPriceMin.value), parseInt(filterPriceMax.value));
+            const maxPrice  = Math.max(parseInt(filterPriceMin.value), parseInt(filterPriceMax.value));
+            const maxIsMax  = maxPrice >= 500;
+
+            const filtered = allProducts.filter(p => {
+                const catMatch  = !catFilter || p.categoria.toLowerCase() === catFilter;
+                const minMatch  = p.precio >= minPrice;
+                const maxMatch  = maxIsMax || p.precio <= maxPrice;
+                return catMatch && minMatch && maxMatch;
+            });
+
+            filteredNum.textContent = filtered.length;
+            noResultsMsg.classList.toggle('hidden', filtered.length > 0);
+
+            renderCards(filtered);
+            renderTable(filtered);
+        }
+
+        // ============================================================
+        // Submit búsqueda
+        // ============================================================
+        searchForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const query = queryInput.value.trim();
+            if (!query) return;
+
+            emptyState.classList.add('hidden');
+            resultsSection.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+            searchBtn.disabled = true;
+            searchBtn.innerHTML = '<i class="fa-solid fa-circle-notch animate-spin"></i><span>Escaneando...</span>';
+
+            startLoadingAnimation();
+
+            try {
+                const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+
+                stopLoadingAnimation();
+                loadingState.classList.add('hidden');
+                searchBtn.disabled = false;
+                searchBtn.innerHTML = '<i class="fa-solid fa-spider"></i><span>Escanear Tiendas</span>';
+
+                if (data.productos && data.productos.length > 0) {
+                    allProducts = data.productos;
+                    renderUI(data);
+                    resultsSection.classList.remove('hidden');
+
+                    // Reset filtros al hacer nueva búsqueda
+                    filterPriceMin.value = 0;
+                    filterPriceMax.value = 500;
+                    updatePriceLabel();
+                } else {
+                    emptyState.classList.remove('hidden');
+                    emptyState.querySelector('p').textContent = `No se encontraron productos para "${query}". Intenta con otra palabra.`;
+                }
+            } catch (err) {
+                stopLoadingAnimation();
+                loadingState.classList.add('hidden');
+                searchBtn.disabled = false;
+                searchBtn.innerHTML = '<i class="fa-solid fa-spider"></i><span>Escanear Tiendas</span>';
+                emptyState.classList.remove('hidden');
+            }
+        });
+
+        // ============================================================
+        // Render UI principal
+        // ============================================================
+        function renderUI(data) {
+            const items = data.productos;
+            const best  = items[0];
+            const worst = items[items.length - 1];
+
+            bestPriceText.textContent  = `$${best.total.toFixed(2)}`;
+            bestStoreText.textContent  = `En ${best.tienda}`;
+            savingsText.textContent    = `$${(worst.total - best.total).toFixed(2)}`;
+            totalOffersText.textContent = items.length;
+
+            // Contar tiendas únicas
+            const tiendasUnicas = new Set(items.map(p => p.tienda_dominio)).size;
+            storeCountText.textContent = `en ${tiendasUnicas} tiendas independientes`;
+
+            // Excel
+            if (data.excel_url) {
+                downloadExcelBtn.href = data.excel_url;
+            }
+
+            // Llenar filtro de categorías
+            const categorias = [...new Set(items.map(p => p.categoria))].sort();
+            filterCategory.innerHTML = '<option value="">Todas las categorías</option>';
+            categorias.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.textContent = cat;
+                filterCategory.appendChild(opt);
+            });
+
+            // Actualizar precio máximo del slider según los datos reales
+            const maxPrecio = Math.ceil(Math.max(...items.map(p => p.precio)) / 50) * 50;
+            const sliderMax = Math.max(maxPrecio, 100);
+            filterPriceMin.max = sliderMax;
+            filterPriceMax.max = sliderMax;
+            filterPriceMax.value = sliderMax;
+
+            totalNum.textContent = items.length;
+            filteredNum.textContent = items.length;
+
+            renderCards(items);
+            renderTable(items);
+        }
+
+        // ============================================================
+        // Render Tarjetas
+        // ============================================================
+        function renderCards(items) {
+            cardsContainer.innerHTML = '';
+            items.forEach((p, idx) => {
+                const isBest = idx === 0 && items.length > 1;
+                const card = document.createElement('div');
+                card.className = `bg-white rounded-2xl shadow-sm border ${isBest ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-slate-200/80'} overflow-hidden flex flex-col hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300`;
+                card.style.animation = `fadeIn 0.4s ease-out ${idx * 0.04}s both`;
+
+                card.innerHTML = `
+                    <div class="relative h-52 bg-slate-100 flex items-center justify-center overflow-hidden p-3 border-b border-slate-100">
+                        <img src="${p.imagen_url}" alt="${p.titulo}" class="h-full w-full object-contain hover:scale-105 transition duration-300" onerror="this.src='https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400'">
+                        <div class="absolute top-3 left-3 flex flex-col gap-1">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-white/95 text-emerald-800 border border-emerald-200 shadow-sm backdrop-blur-md">
+                                <i class="fa-solid fa-store mr-1 text-[10px] text-emerald-600"></i> ${p.tienda}
+                            </span>
+                            ${isBest ? '<span class="bg-emerald-600 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded-md shadow-sm">🥇 Mejor Precio</span>' : ''}
+                        </div>
+                        ${!p.disponible ? '<div class="absolute inset-0 bg-white/60 flex items-center justify-center"><span class="text-xs font-black text-red-500 bg-white border border-red-200 px-3 py-1.5 rounded-lg shadow">Agotado</span></div>' : ''}
+                    </div>
+
+                    <div class="p-4 flex-1 flex flex-col justify-between">
+                        <div>
+                            <span class="inline-block text-[10px] font-bold text-emerald-700 uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">${p.categoria}</span>
+                            <h4 class="font-bold text-slate-800 text-sm mt-1.5 line-clamp-2" title="${p.titulo}">${p.titulo}</h4>
+                        </div>
+
+                        <div class="mt-4 pt-3 border-t border-slate-100">
+                            <div class="flex items-baseline justify-between">
+                                <div>
+                                    <span class="text-xl font-black text-slate-900">$${p.precio.toFixed(2)}</span>
+                                    <p class="text-[11px] text-slate-500 mt-0.5">
+                                        Envío: ${p.envio === 0 ? '<strong class="text-emerald-600 font-bold">GRATIS</strong>' : `$${p.envio.toFixed(2)}`}
+                                    </p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-[10px] text-slate-400 uppercase font-semibold">Total</p>
+                                    <p class="text-sm font-black ${isBest ? 'text-emerald-600' : 'text-slate-800'}">$${p.total.toFixed(2)}</p>
+                                </div>
+                            </div>
+
+                            <a
+                                href="${p.url}"
+                                target="_blank"
+                                class="mt-3.5 w-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-sm transition flex items-center justify-center space-x-1.5"
+                            >
+                                <span>Ver Producto Real en Tienda</span>
+                                <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </a>
+                        </div>
+                    </div>
+                `;
+                cardsContainer.appendChild(card);
+            });
+        }
+
+        // ============================================================
+        // Render Tabla
+        // ============================================================
+        function renderTable(items) {
+            tableBody.innerHTML = '';
+            items.forEach((p, idx) => {
+                const isBest = idx === 0 && items.length > 1;
+                const tr = document.createElement('tr');
+                tr.className = isBest ? 'bg-emerald-50/60 font-medium' : 'hover:bg-slate-50/70 transition';
+                tr.innerHTML = `
+                    <td class="py-3 px-4 text-center font-bold text-slate-600">${isBest ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}</td>
+                    <td class="py-3 px-4 font-bold text-emerald-800">${p.tienda}</td>
+                    <td class="py-3 px-4 font-semibold text-slate-800 max-w-xs truncate" title="${p.titulo}">${p.titulo}</td>
+                    <td class="py-3 px-4 text-xs text-slate-500">${p.categoria}</td>
+                    <td class="py-3 px-4 text-right text-slate-600">$${p.precio.toFixed(2)}</td>
+                    <td class="py-3 px-4 text-right text-slate-500">${p.envio === 0 ? '<strong class="text-emerald-600 font-bold">GRATIS</strong>' : `$${p.envio.toFixed(2)}`}</td>
+                    <td class="py-3 px-4 text-right font-black ${isBest ? 'text-emerald-600 text-base' : 'text-slate-900'}">$${p.total.toFixed(2)}</td>
+                    <td class="py-3 px-4 text-center">
+                        <a href="${p.url}" target="_blank" class="inline-flex items-center text-xs font-bold text-emerald-600 hover:text-emerald-800 hover:underline">
+                            <span>Abrir Ficha</span>
+                            <i class="fa-solid fa-arrow-up-right-from-square ml-1 text-[10px]"></i>
+                        </a>
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
+    </script>
+</body>
+</html>
